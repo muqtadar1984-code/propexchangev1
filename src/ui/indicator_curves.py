@@ -43,8 +43,11 @@ def _make_fig(title: str, subtitle: str, xs, ys,
       • Clean readable layout matching Streamlit's default light theme
     """
     hex_color = color
-    # Semi-transparent fill version of the colour
-    fill_color = color + "22"   # 13% opacity via hex alpha
+    # Convert hex to rgba for fill (Plotly requires rgba, not 8-digit hex)
+    r = int(color[1:3], 16)
+    g = int(color[3:5], 16)
+    b = int(color[5:7], 16)
+    fill_color = f"rgba({r},{g},{b},0.13)"
 
     fig = go.Figure()
 
