@@ -246,14 +246,128 @@ def fig_ci(sigma: float, ci: float,
     )
 
 
-# ── Public renderer ────────────────────────────────────────────────────────────
+# ── Slot setup (call ONCE before the while loop) ──────────────────────────────
+def setup_curve_slots(selected_buildings: list) -> dict:
+    """
+    Create the static layout skeleton for all indicator curves and return
+    a dict of st.empty() slots that can be updated in-place each cycle.
+
+    Call this ONCE before the while loop.  The returned dict has the shape:
+        { bkey: { "kpi": slot, "shf": slot, "esf": slot,
+                  "uss": slot, "pdp": slot, "ci": slot, "caption": slot } }
+    """
+    slots = {}
+    for bkey in selected_buildings:
+        bname = ASHRAE_BUILDINGS[bkey]["name"]
+
+        st.markdown(
+            f"#### 📈 {bname} — Indicator Transformation Curves  *(Patent E/E1)*"
+        )
+
+        kpi_slot = st.empty()          # metrics strip
+
+        st.markdown("---")
+
+        # Row 1: SHF | ESF | USS
+        r1c1, r1c2, r1c3 = st.columns(3)
+        shf_slot = r1c1.empty()
+        esf_slot = r1c2.empty()
+        uss_slot = r1c3.empty()
+
+        # Row 2: PDP | CI | spacer
+        r2c1, r2c2, _ = st.columns(3)
+        pdp_slot = r2c1.empty()
+        ci_slot  = r2c2.empty()
+
+        caption_slot = st.empty()
+        st.divider()
+
+        slots[bkey] = {
+            "kpi":     kpi_slot,
+            "shf":     shf_slot,
+            "esf":     esf_slot,
+            "uss":     uss_slot,
+            "pdp":     pdp_slot,
+            "ci":      ci_slot,
+            "caption": caption_slot,
+        }
+
+    return slots
+
+
+# ── Live updater (call each cycle inside the while loop) ─────────────────────
+def render_indicator_curves_live(data_logs: dict, selected_buildings: list,
+                                 curve_slots: dict) -> None:
+    """
+    Push updated figures into the pre-created st.empty() slots.
+    No keys → no DuplicateElementKey errors.
+    Plotly.react() diff-updates the charts → smooth dot movement.
+    """
+    MAX_LIFE = 120
+    CHART_H  = 320
+
+    for bkey in selected_buildings:
+        logs = data_logs.get(bkey, [])
+        if not logs or bkey not in curve_slots:
+            continue
+
+        cycle = logs[-1]
+        slots = curve_slots[bkey]
+        ps    = cycle["processed_sensors"]
+        ind   = cycle["indicators"]
+        pdp_d = cycle["valuation"]["pdp_detail"]
+
+        # Compute inputs
+        s_shf  = float(np.clip(0.6 * ps["vibration"] + 0.4 * ps["strain"], 0, 1))
+        e_esf  = float(np.clip(0.4 * ps["moisture"]  + 0.3 * ps["temperature"]
+                               + 0.3 * ps["air_quality"], 0, 1))
+        u_uss  = float(np.clip(0.5 * ps["occupancy"] + 0.5 * ps["electrical_load"], 0, 1))
+        p_pdp  = float(np.clip(pdp_d.get("effective_age", 0) / MAX_LIFE, 0, 1))
+        ci_val = float(ind["CI"])
+        sigma_ci = float(np.clip(-math.log(max(ci_val, 1e-9)) / 3.0, 0, 1.2))
+        health = cycle["valuation"]["health_factor"]
+
+        # KPI strip
+        with slots["kpi"].container():
+            kpi_cols = st.columns(6)
+            for col, (label, val, color) in zip(kpi_cols, [
+                ("SHF", ind["SHF"],  COLORS["SHF"]),
+                ("ESF", ind["ESF"],  COLORS["ESF"]),
+                ("USS", ind["USS"],  COLORS["USS"]),
+                ("PDP", ind["PDP"],  COLORS["PDP"]),
+                ("CI",  ci_val,      COLORS["CI"]),
+            ]):
+                col.metric(label, f"{val:.4f}")
+            kpi_cols[5].metric("Health ×", f"{health:.4f}")
+
+        # Charts — no key= needed; each slot is already unique
+        cfg = {"displayModeBar": False}
+        slots["shf"].plotly_chart(fig_shf(s_shf, ind["SHF"], height=CHART_H),
+                                  use_container_width=True, config=cfg)
+        slots["esf"].plotly_chart(fig_esf(e_esf, ind["ESF"], height=CHART_H),
+                                  use_container_width=True, config=cfg)
+        slots["uss"].plotly_chart(fig_uss(u_uss, ind["USS"], height=CHART_H),
+                                  use_container_width=True, config=cfg)
+        slots["pdp"].plotly_chart(fig_pdp(p_pdp, ind["PDP"], height=CHART_H),
+                                  use_container_width=True, config=cfg)
+        slots["ci"].plotly_chart(fig_ci(sigma_ci, ci_val, height=CHART_H),
+                                 use_container_width=True, config=cfg)
+
+        # Caption
+        with slots["caption"].container():
+            st.caption(
+                f"Health = SHF × ESF × USS × PDP × CI "
+                f"= {ind['SHF']:.4f} × {ind['ESF']:.4f} × {ind['USS']:.4f} "
+                f"× {ind['PDP']:.4f} × {ci_val:.4f} = **{health:.4f}**"
+            )
+
+
+# ── Public renderer (used when engine is STOPPED — no while loop) ─────────────
 def render_indicator_curves(data_logs: dict, selected_buildings: list,
                             cycle_id: int = 0) -> None:
     """
-    For each selected building render the 5 Patent-E/E1 indicator curves.
-    Layout: each chart full-width on its own row for maximum readability.
-
-    cycle_id must increment each while-loop iteration to keep widget keys unique.
+    Static one-shot render for the stopped-engine view.
+    Uses cycle_id in keys so re-runs never collide.
     """
     latest = {
         bk: logs[-1]
@@ -303,26 +417,25 @@ def render_indicator_curves(data_logs: dict, selected_buildings: list,
         CHART_H = 320
 
         # ── Row 1: SHF | ESF | USS ───────────────────────────────────────────
-        # Stable keys (no cycle_id) → Plotly.react() diff-update → smooth dot
         c1, c2, c3 = st.columns(3)
         c1.plotly_chart(fig_shf(s_shf, ind["SHF"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_shf")
+            key=f"{bkey}_shf_{cycle_id}")
         c2.plotly_chart(fig_esf(e_esf, ind["ESF"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_esf")
+            key=f"{bkey}_esf_{cycle_id}")
         c3.plotly_chart(fig_uss(u_uss, ind["USS"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_uss")
+            key=f"{bkey}_uss_{cycle_id}")
 
         # ── Row 2: PDP | CI | (spacer) ──────────────────────────────────────
         c4, c5, _ = st.columns(3)
         c4.plotly_chart(fig_pdp(p_pdp, ind["PDP"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_pdp")
+            key=f"{bkey}_pdp_{cycle_id}")
         c5.plotly_chart(fig_ci(sigma_ci, ci_val, height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_ci")
+            key=f"{bkey}_ci_{cycle_id}")
 
         # ── Computation chain caption ────────────────────────────────────────
         st.caption(

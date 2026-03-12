@@ -35,7 +35,9 @@ from src.ui.exchange_view import render_exchange_view
 from src.ui.charts import render_sensor_charts
 from src.ui.hash_chain_tab import render_hash_chain_tab
 from src.ui.valuation_table import render_valuation_table
-from src.ui.indicator_curves import render_indicator_curves
+from src.ui.indicator_curves import (render_indicator_curves,
+                                      setup_curve_slots,
+                                      render_indicator_curves_live)
 
 REIT_FRONTEND_URL = "http://localhost:5173"
 
@@ -128,10 +130,14 @@ def main():
         if st.session_state.running:
             building_ph  = st.empty()
             exchange_ph  = st.empty()
-            curves_ph    = st.empty()
+
+            # Create static layout + per-chart empty slots ONCE before the loop.
+            # render_indicator_curves_live() will update them in-place each cycle
+            # without any key= arguments → no DuplicateElementKey, smooth dot movement.
+            _curve_slots = setup_curve_slots(st.session_state.selected_buildings)
+
             hash_ph      = st.empty()
             table_ph     = st.empty()
-            _cycle_id    = 0
 
             while st.session_state.running:
                 for bkey in st.session_state.selected_buildings:
@@ -156,18 +162,18 @@ def main():
                     render_building_info()
                 with exchange_ph.container():
                     render_exchange_view(st.session_state.exchange.get_exchange_summary())
-                with curves_ph.container():
-                    render_indicator_curves(
-                        st.session_state.data_logs,
-                        st.session_state.selected_buildings,
-                        cycle_id=_cycle_id,
-                    )
+
+                render_indicator_curves_live(
+                    st.session_state.data_logs,
+                    st.session_state.selected_buildings,
+                    _curve_slots,
+                )
+
                 with hash_ph.container():
                     render_hash_chain_tab()
                 with table_ph.container():
                     render_valuation_table()
 
-                _cycle_id += 1
                 time.sleep(st.session_state.cycle_speed)
 
         else:
