@@ -35,9 +35,7 @@ from src.ui.exchange_view import render_exchange_view
 from src.ui.charts import render_sensor_charts
 from src.ui.hash_chain_tab import render_hash_chain_tab
 from src.ui.valuation_table import render_valuation_table
-from src.ui.indicator_curves import (render_indicator_curves,
-                                      setup_curve_slots,
-                                      render_indicator_curves_live)
+from src.ui.indicator_curves import render_indicator_curves
 
 REIT_FRONTEND_URL = "http://localhost:5173"
 
@@ -128,53 +126,39 @@ def main():
     with tab_twin:
 
         if st.session_state.running:
-            building_ph  = st.empty()
-            exchange_ph  = st.empty()
+            # ── Process one data cycle ────────────────────────────────────────
+            for bkey in st.session_state.selected_buildings:
+                orch = st.session_state.orchestrators[bkey]
+                overrides = None
+                event = st.session_state.scenario_event
+                if event and event["building"] == bkey:
+                    overrides = event["overrides"]
 
-            # Create static layout + per-chart empty slots ONCE before the loop.
-            # render_indicator_curves_live() will update them in-place each cycle
-            # without any key= arguments → no DuplicateElementKey, smooth dot movement.
-            _curve_slots = setup_curve_slots(st.session_state.selected_buildings)
+                cycle = orch.process_cycle(overrides)
+                st.session_state.data_logs[bkey].append(cycle)
 
-            hash_ph      = st.empty()
-            table_ph     = st.empty()
-
-            while st.session_state.running:
-                for bkey in st.session_state.selected_buildings:
-                    orch = st.session_state.orchestrators[bkey]
-                    overrides = None
-                    event = st.session_state.scenario_event
-                    if event and event["building"] == bkey:
-                        overrides = event["overrides"]
-
-                    cycle = orch.process_cycle(overrides)
-                    st.session_state.data_logs[bkey].append(cycle)
-
-                    st.session_state.exchange.update_property(
-                        bkey,
-                        cycle["valuation"]["rtpmv"],
-                        cycle["indicators"]["CI"],
-                        cycle["valuation"]["health_factor"],
-                        cycle["timestamp"],
-                    )
-
-                with building_ph.container():
-                    render_building_info()
-                with exchange_ph.container():
-                    render_exchange_view(st.session_state.exchange.get_exchange_summary())
-
-                render_indicator_curves_live(
-                    st.session_state.data_logs,
-                    st.session_state.selected_buildings,
-                    _curve_slots,
+                st.session_state.exchange.update_property(
+                    bkey,
+                    cycle["valuation"]["rtpmv"],
+                    cycle["indicators"]["CI"],
+                    cycle["valuation"]["health_factor"],
+                    cycle["timestamp"],
                 )
 
-                with hash_ph.container():
-                    render_hash_chain_tab()
-                with table_ph.container():
-                    render_valuation_table()
+            # ── Render UI ─────────────────────────────────────────────────────
+            # Each st.rerun() is a fresh script execution so keys are seen
+            # exactly once per run — stable keys work, no DuplicateElementKey.
+            render_building_info()
+            render_exchange_view(st.session_state.exchange.get_exchange_summary())
+            render_indicator_curves(
+                st.session_state.data_logs,
+                st.session_state.selected_buildings,
+            )
+            render_hash_chain_tab()
+            render_valuation_table()
 
-                time.sleep(st.session_state.cycle_speed)
+            time.sleep(st.session_state.cycle_speed)
+            st.rerun()
 
         else:
             render_building_info()

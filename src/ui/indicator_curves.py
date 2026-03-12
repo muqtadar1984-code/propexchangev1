@@ -424,25 +424,27 @@ def render_indicator_curves(data_logs: dict, selected_buildings: list,
         CHART_H = 320
 
         # ── Row 1: SHF | ESF | USS ───────────────────────────────────────────
+        # Stable keys are safe here because render_indicator_curves() is called
+        # once per st.rerun() — keys are seen exactly once per script execution.
         c1, c2, c3 = st.columns(3)
         c1.plotly_chart(fig_shf(s_shf, ind["SHF"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_shf_{cycle_id}")
+            key=f"{bkey}_shf")
         c2.plotly_chart(fig_esf(e_esf, ind["ESF"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_esf_{cycle_id}")
+            key=f"{bkey}_esf")
         c3.plotly_chart(fig_uss(u_uss, ind["USS"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_uss_{cycle_id}")
+            key=f"{bkey}_uss")
 
         # ── Row 2: PDP | CI | (spacer) ──────────────────────────────────────
         c4, c5, _ = st.columns(3)
         c4.plotly_chart(fig_pdp(p_pdp, ind["PDP"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_pdp_{cycle_id}")
+            key=f"{bkey}_pdp")
         c5.plotly_chart(fig_ci(sigma_ci, ci_val, height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_ci_{cycle_id}")
+            key=f"{bkey}_ci")
 
         # ── Computation chain caption ────────────────────────────────────────
         st.caption(
