@@ -340,18 +340,25 @@ def render_indicator_curves_live(data_logs: dict, selected_buildings: list,
                 col.metric(label, f"{val:.4f}")
             kpi_cols[5].metric("Health ×", f"{health:.4f}")
 
-        # Charts — no key= needed; each slot is already unique
+        # Stable keys scoped to each building — safe here because every
+        # plotly_chart call targets its own pre-created st.empty() slot,
+        # so Streamlit sees an in-place update, never a duplicate.
         cfg = {"displayModeBar": False}
         slots["shf"].plotly_chart(fig_shf(s_shf, ind["SHF"], height=CHART_H),
-                                  use_container_width=True, config=cfg)
+                                  use_container_width=True, config=cfg,
+                                  key=f"{bkey}_shf")
         slots["esf"].plotly_chart(fig_esf(e_esf, ind["ESF"], height=CHART_H),
-                                  use_container_width=True, config=cfg)
+                                  use_container_width=True, config=cfg,
+                                  key=f"{bkey}_esf")
         slots["uss"].plotly_chart(fig_uss(u_uss, ind["USS"], height=CHART_H),
-                                  use_container_width=True, config=cfg)
+                                  use_container_width=True, config=cfg,
+                                  key=f"{bkey}_uss")
         slots["pdp"].plotly_chart(fig_pdp(p_pdp, ind["PDP"], height=CHART_H),
-                                  use_container_width=True, config=cfg)
+                                  use_container_width=True, config=cfg,
+                                  key=f"{bkey}_pdp")
         slots["ci"].plotly_chart(fig_ci(sigma_ci, ci_val, height=CHART_H),
-                                 use_container_width=True, config=cfg)
+                                 use_container_width=True, config=cfg,
+                                 key=f"{bkey}_ci")
 
         # Caption
         with slots["caption"].container():
