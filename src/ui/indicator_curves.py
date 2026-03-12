@@ -263,7 +263,6 @@ def render_indicator_curves(data_logs: dict, selected_buildings: list,
         return
 
     MAX_LIFE = 120
-    CHART_H  = 380   # full-width height — large and readable
 
     for bkey, cycle in latest.items():
         bname = ASHRAE_BUILDINGS[bkey]["name"]
@@ -299,40 +298,28 @@ def render_indicator_curves(data_logs: dict, selected_buildings: list,
 
         st.markdown("---")
 
-        # ── 1 · SHF — full width ────────────────────────────────────────────
-        st.plotly_chart(
-            fig_shf(s_shf, ind["SHF"], height=CHART_H),
-            use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_shf_{cycle_id}",
-        )
+        CHART_H = 320
 
-        # ── 2 · ESF — full width ────────────────────────────────────────────
-        st.plotly_chart(
-            fig_esf(e_esf, ind["ESF"], height=CHART_H),
+        # ── Row 1: SHF | ESF | USS ───────────────────────────────────────────
+        c1, c2, c3 = st.columns(3)
+        c1.plotly_chart(fig_shf(s_shf, ind["SHF"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_esf_{cycle_id}",
-        )
+            key=f"{bkey}_shf_{cycle_id}")
+        c2.plotly_chart(fig_esf(e_esf, ind["ESF"], height=CHART_H),
+            use_container_width=True, config={"displayModeBar": False},
+            key=f"{bkey}_esf_{cycle_id}")
+        c3.plotly_chart(fig_uss(u_uss, ind["USS"], height=CHART_H),
+            use_container_width=True, config={"displayModeBar": False},
+            key=f"{bkey}_uss_{cycle_id}")
 
-        # ── 3 · USS — full width ────────────────────────────────────────────
-        st.plotly_chart(
-            fig_uss(u_uss, ind["USS"], height=CHART_H),
+        # ── Row 2: PDP | CI | (spacer) ──────────────────────────────────────
+        c4, c5, _ = st.columns(3)
+        c4.plotly_chart(fig_pdp(p_pdp, ind["PDP"], height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_uss_{cycle_id}",
-        )
-
-        # ── 4 · PDP — full width ────────────────────────────────────────────
-        st.plotly_chart(
-            fig_pdp(p_pdp, ind["PDP"], height=CHART_H),
+            key=f"{bkey}_pdp_{cycle_id}")
+        c5.plotly_chart(fig_ci(sigma_ci, ci_val, height=CHART_H),
             use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_pdp_{cycle_id}",
-        )
-
-        # ── 5 · CI — full width ─────────────────────────────────────────────
-        st.plotly_chart(
-            fig_ci(sigma_ci, ci_val, height=CHART_H),
-            use_container_width=True, config={"displayModeBar": False},
-            key=f"{bkey}_ci_{cycle_id}",
-        )
+            key=f"{bkey}_ci_{cycle_id}")
 
         # ── Computation chain caption ────────────────────────────────────────
         st.caption(
