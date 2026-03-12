@@ -1,6 +1,6 @@
 """
 REAL-TIME DIGITAL TWIN-BASED PROPERTY VALUATION & EXCHANGE SYSTEM
-Version 2.0 — ASHRAE Live Data Edition
+Version 2.0 — ASHRAE Live Data Edition  (build: 2026-03-12)
 
 Data Source: ASHRAE Great Energy Predictor III (Building Data Genome Project 2)
 Region: Kuala Lumpur & Selangor, Malaysia (3.14°N, 101.69°E)
