@@ -63,12 +63,22 @@ def _push_state(payload: dict) -> None:
         if _API_URL:
             # Cloud: POST to external Railway/Render service
             import requests
-            requests.post(f"{_API_URL}/api/update", json=payload, timeout=1)
+            resp = requests.post(
+                f"{_API_URL}/api/update",
+                json=payload,
+                timeout=8,  # increased from 1s — Streamlit Cloud→Railway needs headroom
+            )
+            st.session_state["_last_push_ok"]  = resp.status_code == 200
+            st.session_state["_last_push_err"] = None if resp.status_code == 200 else f"HTTP {resp.status_code}"
         else:
             # Local: direct in-process call (zero latency)
             _api.update_state(payload)
-    except Exception:
-        pass  # never let API errors crash the engine
+            st.session_state["_last_push_ok"]  = True
+            st.session_state["_last_push_err"] = None
+    except Exception as exc:
+        st.session_state["_last_push_ok"]  = False
+        st.session_state["_last_push_err"] = str(exc)
+        # never let API errors crash the engine
 
 
 def _build_state_payload(running: bool) -> dict:
@@ -189,7 +199,14 @@ def main():
                     "Start the Vite dev server: `cd frontend && npm run dev`"
                 )
             elif _API_URL:
-                st.caption(f"🌐 **Cloud API mode** — pushing state to `{_API_URL}`")
+                push_ok  = st.session_state.get("_last_push_ok")
+                push_err = st.session_state.get("_last_push_err")
+                if push_ok is None:
+                    st.caption(f"🌐 **Cloud API mode** — pushing state to `{_API_URL}`")
+                elif push_ok:
+                    st.caption(f"🟢 **Cloud API mode** — last push to Railway ✓ OK")
+                else:
+                    st.caption(f"🔴 **Cloud API push FAILED** — `{push_err}` → check Railway URL / timeout")
             else:
                 st.caption(
                     "Live React dashboard — start the Vite dev server first: "
