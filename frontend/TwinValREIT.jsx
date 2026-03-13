@@ -1,10 +1,57 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   PieChart, Pie, Cell, Legend, ReferenceLine,
 } from "recharts";
+
+// ── Live API config ────────────────────────────────────────────────────────────
+// LOCAL:  Vite proxies /api → localhost:8502  (see vite.config.js)
+// CLOUD:  Set VITE_API_URL in Vercel env vars to your Railway API URL
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+// Maps backend building keys → React property IDs
+const BACKEND_TO_REACT = {
+  "MY-KL-OFF-KLCC":  "KLCC_TOWER",
+  "MY-SA-IDC-AXIS":  "AXIS_SHAH",
+  "MY-KL-HC-ALAQAR": "ALAQAR_MED",
+  "MY-KL-RET-PAV":   "PAVILION_RTL",
+  "MY-SJ-LOG-SUN":   "SUNWAY_LOG",
+};
+
+// ── Live data hook ─────────────────────────────────────────────────────────────
+function useLiveData(pollMs = 2000) {
+  const [liveData,   setLiveData]   = useState(null);
+  const [connected,  setConnected]  = useState(false);
+  const [apiOnline,  setApiOnline]  = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/state`, { cache: "no-store" });
+        if (!res.ok) throw new Error("non-200");
+        const data = await res.json();
+        if (!cancelled) {
+          setLiveData(data);
+          setApiOnline(true);
+          setConnected(data.engine_running === true);
+        }
+      } catch {
+        if (!cancelled) {
+          setApiOnline(false);
+          setConnected(false);
+        }
+      }
+    };
+    poll();
+    const id = setInterval(poll, pollMs);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [pollMs]);
+
+  return { liveData, connected, apiOnline };
+}
 
 // ── Properties ─────────────────────────────────────────────────────────────────
 const PROPERTIES = [
@@ -252,33 +299,68 @@ function InfoRow({ label, value, highlight = false }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function TwinValREIT() {
-  const [tick, setTick]         = useState(0);
-  const [running, setRunning]   = useState(true);
-  const [activeTab, setActiveTab] = useState("portfolio");
+  const [tick, setTick]           = useState(0);
+  const [simRunning, setSimRunning] = useState(true);  // local simulation toggle
+  const [activeTab, setActiveTab]   = useState("portfolio");
   const [selectedProp, setSelectedProp] = useState(PROPERTIES[0].id);
-  const [overrides, setOverrides] = useState({});
-  const [auditLog, setAuditLog]   = useState([]);
-  const [history, setHistory]     = useState({});
+  const [overrides, setOverrides]   = useState({});
+  const [auditLog, setAuditLog]     = useState([]);
+  const [history, setHistory]       = useState({});
   const intervalRef = useRef(null);
 
-  // Tick engine
+  // Live API data
+  const { liveData, connected, apiOnline } = useLiveData(2000);
+
+  // "running" = either live engine connected OR local simulation active
+  const running = connected || simRunning;
+
+  // Tick engine (drives local simulation when engine is not connected)
   useEffect(() => {
-    if (running) {
+    if (simRunning) {
       intervalRef.current = setInterval(() => setTick(t => t + 1), 2000);
     } else {
       clearInterval(intervalRef.current);
     }
     return () => clearInterval(intervalRef.current);
-  }, [running]);
+  }, [simRunning]);
 
-  // Build live state per property
-  const propStates = PROPERTIES.map(p => {
+  // Build per-property state — merge live engine data when connected
+  const propStates = useMemo(() => PROPERTIES.map(p => {
+    // Always compute local simulation as baseline / fallback
     const sensors = generateSensorData(tick + p.id.charCodeAt(0));
     const health  = computeHealthFactor(sensors);
     const ci      = computeCI(sensors);
     const rtpmv   = computeRTPMV(p.govtVal, health, ci, overrides[p.id] || 0);
-    return { ...p, sensors, health, ci, rtpmv };
-  });
+    const base    = { ...p, sensors, health, ci, rtpmv };
+
+    // Overlay with live engine data if available
+    if (connected && liveData?.buildings) {
+      const bkey = Object.keys(BACKEND_TO_REACT).find(k => BACKEND_TO_REACT[k] === p.id);
+      const live  = bkey ? liveData.buildings[bkey] : null;
+      if (live) {
+        const ind = live.indicators || {};
+        // Map indicator scores to sensor-like values for radar chart
+        const liveSensors = {
+          structural:    ind.SHF   ?? sensors.structural,
+          environmental: ind.ESF   ?? sensors.environmental,
+          occupancy:     ind.USS   ?? sensors.occupancy,
+          electrical:    ind.CI    ?? sensors.electrical,
+          hvac:          ind.PDP   ?? sensors.hvac,
+        };
+        return {
+          ...base,
+          rtpmv:      live.rtpmv         ?? rtpmv,
+          health:     live.health_factor ?? health,
+          ci:         ind.CI             ?? ci,
+          sensors:    liveSensors,
+          indicators: ind,
+          exchange:   live.exchange,
+          _live: true,
+        };
+      }
+    }
+    return base;
+  }), [tick, connected, liveData, overrides]);
 
   // History accumulation
   useEffect(() => {
@@ -383,17 +465,53 @@ export default function TwinValREIT() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ ...S.badge, color: running ? "#10b981" : "#f59e0b" }}>
-            {running ? "● LIVE" : "⏸ PAUSED"}
+          {/* API / engine connection status */}
+          {apiOnline ? (
+            <span style={{ ...S.badge, color: connected ? "#10b981" : "#f59e0b",
+                           border: `1px solid ${connected ? "#10b981" : "#f59e0b"}` }}>
+              {connected ? "⚡ ENGINE LIVE" : "⏸ ENGINE STOPPED"}
+            </span>
+          ) : (
+            <span style={{ ...S.badge, color: "#475569" }}>
+              ◉ LOCAL SIM
+            </span>
+          )}
+          <span style={{ ...S.badge, color: simRunning ? "#10b981" : "#f59e0b" }}>
+            {simRunning ? "● SIM ON" : "⏸ SIM OFF"}
           </span>
-          <button onClick={() => setRunning(r => !r)}
+          <button onClick={() => setSimRunning(r => !r)}
             style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 4,
                      color: "#e2e8f0", padding: "4px 10px", cursor: "pointer", fontSize: 11 }}>
-            {running ? "Pause" : "Resume"}
+            {simRunning ? "Pause Sim" : "Resume Sim"}
           </button>
           <span style={S.badge}>Tick #{tick}</span>
         </div>
       </div>
+
+      {/* ── Scenario Alert Banner ───────────────────────────────────────────── */}
+      {liveData?.active_scenario && (
+        <div style={{
+          background: "#1a0a00", border: "1px solid #dc2626", borderRadius: 6,
+          padding: "8px 14px", marginBottom: 12, display: "flex",
+          alignItems: "center", gap: 10,
+        }}>
+          <span style={{ fontSize: 16 }}>🚨</span>
+          <div>
+            <span style={{ fontWeight: 700, color: "#ef4444", fontSize: 12 }}>
+              SCENARIO ACTIVE:&nbsp;
+            </span>
+            <span style={{ color: "#fca5a5", fontSize: 12 }}>
+              {(liveData.active_scenario.type || "custom").replace(/_/g, " ").toUpperCase()}
+              {liveData.active_scenario.building
+                ? ` — ${liveData.active_scenario.building}`
+                : ""}
+            </span>
+          </div>
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "#7f1d1d" }}>
+            RTPMV & indicators updating live ↓
+          </span>
+        </div>
+      )}
 
       {/* KPI Bar */}
       <div style={S.kpiRow}>
@@ -903,15 +1021,30 @@ export default function TwinValREIT() {
       {activeTab === "exchange" && (
         <div style={S.grid2}>
           {propStates.map(p => {
+            // Use live exchange data if available, else derive from RTPMV
+            const liveEx  = p.exchange;
             const spread  = p.rtpmv * 0.005;
-            const bid     = p.rtpmv - spread;
-            const ask     = p.rtpmv + spread;
+            const bid     = liveEx?.bid ?? (p.rtpmv - spread);
+            const ask     = liveEx?.ask ?? (p.rtpmv + spread);
             const mid     = p.rtpmv;
-            const depth   = Array.from({ length: 5 }, (_, i) => ({
-              price:  (bid - i * spread * 0.4) / 1e6,
-              bidVol: Math.round(15 - i * 2.5),
-              askVol: Math.round(12 - i * 2),
-            }));
+            const status  = liveEx?.status ?? "ACTIVE";
+            const cbActive = liveEx?.circuit_breaker ?? false;
+
+            // Order book: use real depth from engine, or generate synthetic
+            const liveBids = liveEx?.bids ?? [];
+            const liveAsks = liveEx?.asks ?? [];
+            const depth = liveBids.length > 0
+              ? liveBids.slice(0, 5).map((b, i) => ({
+                  price:  b.price / 1e6,
+                  bidVol: b.quantity,
+                  askVol: liveAsks[i]?.quantity ?? 0,
+                }))
+              : Array.from({ length: 5 }, (_, i) => ({
+                  price:  (bid - i * spread * 0.4) / 1e6,
+                  bidVol: Math.round(15 - i * 2.5),
+                  askVol: Math.round(12 - i * 2),
+                }));
+
             return (
               <Card key={p.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -921,14 +1054,26 @@ export default function TwinValREIT() {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 14, fontWeight: 700 }}>{fmt.rm(mid)}</div>
-                    <div style={{ fontSize: 9, color: "#64748b" }}>Mid RTPMV</div>
+                    <div style={{ fontSize: 9, color: p._live ? "#10b981" : "#64748b" }}>
+                      {p._live ? "● Live RTPMV" : "Mid RTPMV"}
+                    </div>
                   </div>
                 </div>
+
+                {/* Circuit breaker alert */}
+                {cbActive && (
+                  <div style={{ background: "#1a0000", border: "1px solid #dc2626",
+                                borderRadius: 4, padding: "4px 8px", marginBottom: 8,
+                                fontSize: 10, color: "#ef4444", textAlign: "center", fontWeight: 700 }}>
+                    🔴 CIRCUIT BREAKER — Trading Halted
+                  </div>
+                )}
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
                   {[
-                    { label: "BID", value: fmt.rm(bid), color: "#10b981" },
-                    { label: "SPREAD", value: fmt.rm(spread * 2), color: "#64748b" },
-                    { label: "ASK", value: fmt.rm(ask), color: "#ef4444" },
+                    { label: "BID",    value: fmt.rm(bid),          color: "#10b981" },
+                    { label: "STATUS", value: status,               color: cbActive ? "#ef4444" : "#64748b" },
+                    { label: "ASK",    value: fmt.rm(ask),          color: "#ef4444" },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{ textAlign: "center", background: "#020617", borderRadius: 4, padding: "6px 4px" }}>
                       <div style={{ fontSize: 9, color: "#475569" }}>{label}</div>
@@ -936,7 +1081,10 @@ export default function TwinValREIT() {
                     </div>
                   ))}
                 </div>
-                <SectionHeader>Order Book Depth</SectionHeader>
+
+                <SectionHeader>
+                  Order Book Depth {p._live ? "— Live Engine" : "— Simulated"}
+                </SectionHeader>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                   <thead>
                     <tr style={{ color: "#475569", fontSize: 9 }}>
@@ -1030,13 +1178,22 @@ export default function TwinValREIT() {
           )}
 
           {/* Live tick log */}
-          <SectionHeader>Live System Events</SectionHeader>
+          <SectionHeader>
+            Live System Events {connected ? "— ⚡ Engine Feed" : "— Local Sim"}
+          </SectionHeader>
           <div style={{ maxHeight: 200, overflowY: "auto" }}>
             {Array.from({ length: Math.min(tick, 20) }, (_, i) => tick - i).map(t => (
               <div key={t} style={{ display: "flex", gap: 12, padding: "3px 0", borderBottom: "1px solid #0f172a", fontSize: 10 }}>
                 <span style={{ color: "#475569", minWidth: 60 }}>Tick #{t}</span>
-                <span style={{ color: "#10b981" }}>RTPMV_UPDATE</span>
-                <span style={{ color: "#64748b" }}>all 5 assets · hash verified · CI avg {fmt.pct(propStates.reduce((s, p) => s + p.ci, 0) / propStates.length)}</span>
+                <span style={{ color: connected ? "#10b981" : "#6366f1" }}>
+                  {connected ? "ENGINE_UPDATE" : "SIM_UPDATE"}
+                </span>
+                <span style={{ color: "#64748b" }}>
+                  {connected
+                    ? `${Object.keys(liveData?.buildings || {}).length} assets · live RTPMV · CI avg ${fmt.pct(propStates.reduce((s, p) => s + p.ci, 0) / propStates.length)}`
+                    : `all 5 assets · hash verified · CI avg ${fmt.pct(propStates.reduce((s, p) => s + p.ci, 0) / propStates.length)}`
+                  }
+                </span>
               </div>
             ))}
           </div>

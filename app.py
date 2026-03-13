@@ -1,6 +1,6 @@
 """
 REAL-TIME DIGITAL TWIN-BASED PROPERTY VALUATION & EXCHANGE SYSTEM
-Version 2.0 — ASHRAE Live Data Edition  (build: 2026-03-12)
+Version 2.0 — ASHRAE Live Data Edition  (build: 2026-03-13)
 
 Data Source: ASHRAE Great Energy Predictor III (Building Data Genome Project 2)
 Region: Kuala Lumpur & Selangor, Malaysia (3.14°N, 101.69°E)
@@ -22,6 +22,7 @@ Copyright (c) 2025 — Digital Twin Valuation System
 Patent Pending (India + PCT Filing)
 """
 
+import os
 import time
 
 import streamlit as st
@@ -37,7 +38,87 @@ from src.ui.hash_chain_tab import render_hash_chain_tab
 from src.ui.valuation_table import render_valuation_table
 from src.ui.indicator_curves import render_indicator_curves
 
-REIT_FRONTEND_URL = "http://localhost:5173"
+# ── API bridge (Element H live connection to REIT dashboard) ─────────────────
+# LOCAL  → api_server starts as background thread on port 8502; state is pushed
+#          directly via update_state() (same process, no HTTP overhead).
+# CLOUD  → set TWINVAL_API_URL to your Railway/Render URL; state is POSTed via
+#          HTTP so the separately-deployed api_server receives it.
+_API_URL = os.environ.get("TWINVAL_API_URL", "").strip()
+
+try:
+    import api_server as _api
+    if not _API_URL:
+        # Local dev: start the background thread once per process
+        _api.start_background(port=8502)
+    _API_AVAILABLE = True
+except Exception:
+    _API_AVAILABLE = False
+
+
+def _push_state(payload: dict) -> None:
+    """Push engine state to the REIT API (local direct call or cloud HTTP POST)."""
+    if not _API_AVAILABLE:
+        return
+    try:
+        if _API_URL:
+            # Cloud: POST to external Railway/Render service
+            import requests
+            requests.post(f"{_API_URL}/api/update", json=payload, timeout=1)
+        else:
+            # Local: direct in-process call (zero latency)
+            _api.update_state(payload)
+    except Exception:
+        pass  # never let API errors crash the engine
+
+
+def _build_state_payload(running: bool) -> dict:
+    """Build the full state dict to push to the REIT dashboard."""
+    exchange_summary = st.session_state.exchange.get_exchange_summary()
+    listings   = exchange_summary.get("listings", {})
+    order_books = exchange_summary.get("order_books", {})
+
+    buildings = {}
+    for bkey, logs in st.session_state.data_logs.items():
+        if not logs:
+            continue
+        cycle   = logs[-1]
+        listing = listings.get(bkey, {})
+        ob      = order_books.get(bkey, {"bids": [], "asks": []})
+        cb      = st.session_state.exchange.circuit_breakers.get(bkey, {})
+
+        buildings[bkey] = {
+            "rtpmv":         cycle["valuation"]["rtpmv"],
+            "health_factor": cycle["valuation"]["health_factor"],
+            "indicators":    dict(cycle["indicators"]),
+            "exchange": {
+                "bid":             listing.get("bid", 0),
+                "ask":             listing.get("ask", 0),
+                "status":          listing.get("status", "ACTIVE"),
+                "circuit_breaker": listing.get("status") in ("HALTED", "CIRCUIT_BREAKER"),
+                "bids": ob.get("bids", []),
+                "asks": ob.get("asks", []),
+            },
+        }
+
+    # Active scenario (if any)
+    scenario = st.session_state.get("scenario_event")
+    active_scenario = None
+    if scenario:
+        active_scenario = {
+            "building": scenario.get("building"),
+            "type":     scenario.get("type", "custom"),
+        }
+
+    return {
+        "engine_running":  running,
+        "buildings":       buildings,
+        "active_scenario": active_scenario,
+        "timestamp":       str(time.time()),
+    }
+
+
+# ── Streamlit URL for REIT iframe ─────────────────────────────────────────────
+REIT_FRONTEND_URL = os.environ.get("VITE_REIT_URL", "http://localhost:5173")
 
 # ── Page config — must be first Streamlit call ──────────────────────────────
 st.set_page_config(
@@ -94,8 +175,7 @@ def main():
 
     render_sidebar()
 
-    # ── Top-level tabs — REIT tab rendered BEFORE any while loop so the iframe
-    #    is already in the DOM when the engine loop starts in tab_twin.
+    # ── Top-level tabs ────────────────────────────────────────────────────────
     tab_reit, tab_twin = st.tabs(["📊 REIT Dashboard", "🔬 Digital Twin Engine"])
 
     # ── Tab 1: REIT Dashboard (iframe embed) ─────────────────────────────────
@@ -103,10 +183,18 @@ def main():
         hdr_col, btn_col = st.columns([5, 1])
         with hdr_col:
             st.markdown("### 📊 TwinVal REIT Intelligence")
-            st.caption(
-                "Live React dashboard — start the Vite dev server first: "
-                "`cd frontend && npm install && npm run dev`"
-            )
+            if _API_AVAILABLE and not _API_URL:
+                st.caption(
+                    "🟢 **API server active on port 8502** — React dashboard receives live engine data. "
+                    "Start the Vite dev server: `cd frontend && npm run dev`"
+                )
+            elif _API_URL:
+                st.caption(f"🌐 **Cloud API mode** — pushing state to `{_API_URL}`")
+            else:
+                st.caption(
+                    "Live React dashboard — start the Vite dev server first: "
+                    "`cd frontend && npm install && npm run dev`"
+                )
         with btn_col:
             st.link_button(
                 "Full Screen ↗",
@@ -122,7 +210,7 @@ def main():
             f"port 5173. Command: `cd \"{__file__.replace('app.py', 'frontend')}\" && npm run dev`"
         )
 
-    # ── Tab 2: Digital Twin Engine (existing logic) ───────────────────────────
+    # ── Tab 2: Digital Twin Engine ────────────────────────────────────────────
     with tab_twin:
 
         if st.session_state.running:
@@ -145,9 +233,10 @@ def main():
                     cycle["timestamp"],
                 )
 
+            # ── Push live state to REIT API ───────────────────────────────────
+            _push_state(_build_state_payload(running=True))
+
             # ── Render UI ─────────────────────────────────────────────────────
-            # Each st.rerun() is a fresh script execution so keys are seen
-            # exactly once per run — stable keys work, no DuplicateElementKey.
             render_building_info()
             render_exchange_view(st.session_state.exchange.get_exchange_summary())
             render_indicator_curves(
@@ -161,6 +250,10 @@ def main():
             st.rerun()
 
         else:
+            # ── Engine stopped — push stopped state once ──────────────────────
+            if any(len(v) > 0 for v in st.session_state.data_logs.values()):
+                _push_state(_build_state_payload(running=False))
+
             render_building_info()
 
             has_data = any(len(v) > 0 for v in st.session_state.data_logs.values())
