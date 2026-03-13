@@ -66,6 +66,20 @@ def write_state(payload: dict):
     return {"ok": True}
 
 
+@app.get("/")
+def root():
+    return {
+        "service": "TwinVal State API",
+        "version": "1.0",
+        "endpoints": {
+            "state":  "GET  /api/state  — live engine data (polled by React dashboard)",
+            "update": "POST /api/update — push new state (called by Streamlit engine)",
+            "health": "GET  /health",
+        },
+        "engine_running": get_state().get("engine_running", False),
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
