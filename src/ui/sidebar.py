@@ -2,9 +2,12 @@
 Sidebar controls.
 """
 
+import os
 import streamlit as st
 
 from config.buildings import ASHRAE_BUILDINGS
+
+_REIT_URL = os.environ.get("VITE_REIT_URL", "http://localhost:5173").strip()
 
 
 def render_sidebar():
@@ -16,11 +19,14 @@ def render_sidebar():
         # ── REIT Dashboard Link ───────────────────────────────────────────────
         st.link_button(
             "📊 Open REIT Dashboard ↗",
-            "http://localhost:5173",
+            _REIT_URL,
             use_container_width=True,
-            help="Opens the TwinVal REIT Intelligence frontend. Requires: cd frontend && npm run dev",
+            help=f"Opens the TwinVal REIT Intelligence dashboard at {_REIT_URL}",
         )
-        st.caption("🖥️ Run `npm run dev` in /frontend to activate")
+        if "localhost" in _REIT_URL:
+            st.caption("🖥️ Run `npm run dev` in /frontend to activate")
+        else:
+            st.caption(f"🌐 Cloud dashboard: `{_REIT_URL}`")
         st.markdown("---")
 
         col1, col2 = st.columns(2)
