@@ -237,10 +237,13 @@ def main():
 
         components.iframe(reit_url, height=900, scrolling=True)
 
-        st.info(
-            "💡 If the dashboard is blank, make sure the Vite server is running on "
-            f"port 5173. Command: `cd \"{__file__.replace('app.py', 'frontend')}\" && npm run dev`"
-        )
+        if "localhost" in reit_url:
+            st.info(
+                "💡 If the dashboard is blank, start the Vite dev server: "
+                f"`cd \"{__file__.replace('app.py', 'frontend')}\" && npm run dev`"
+            )
+        else:
+            st.info(f"💡 If the iframe is blank, open it directly: [{reit_url}]({reit_url})")
 
     # ── Tab 1: Digital Twin Engine ───────────────────────────────────────────
     with tab_twin:
@@ -366,10 +369,13 @@ def main():
 
         components.iframe(ic_url, height=900, scrolling=True)
 
-        st.info(
-            "💡 If the dashboard is blank, the Vercel build may still be deploying — "
-            f"check [propexchangev1.vercel.app/individual]({ic_url}) directly."
-        )
+        if "localhost" in ic_url:
+            st.info(
+                "💡 If the dashboard is blank, start the Vite dev server: "
+                "`cd frontend && npm run dev`, then navigate to `/individual`"
+            )
+        else:
+            st.info(f"💡 If the iframe is blank, open it directly: [{ic_url}]({ic_url})")
 
 
 if __name__ == "__main__":
