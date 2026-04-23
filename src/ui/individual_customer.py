@@ -289,16 +289,19 @@ def _render_portfolio_overview():
     # ── Portfolio RTPMV trend (30 days, stacked) ─────────────────────────────
     st.markdown("#### Portfolio Value — Last 30 Days")
     fig = go.Figure()
-    colours = {"villa_damansara": "#1565c0", "shophouse_georgetown": "#2e7d32"}
+    colours = {
+        "villa_damansara":     ("#1565c0", "rgba(21,101,192,0.08)"),
+        "shophouse_georgetown": ("#2e7d32", "rgba(46,125,50,0.08)"),
+    }
     for k in PROP_KEYS:
         df = _rtpmv_series(k, days=90).tail(30)
+        line_col, fill_col = colours[k]
         fig.add_trace(go.Scatter(
             x=df["date"], y=df["rtpmv"],
             mode="lines", name=PROPERTIES[k]["short"],
-            line=dict(color=colours[k], width=2),
+            line=dict(color=line_col, width=2),
             fill="tozeroy",
-            fillcolor=colours[k].replace(")", ",0.08)").replace("rgb", "rgba")
-            if colours[k].startswith("rgb") else colours[k] + "14",
+            fillcolor=fill_col,
         ))
     fig.update_layout(
         height=280, margin=dict(l=0, r=0, t=8, b=0),
