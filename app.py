@@ -128,8 +128,9 @@ def _build_state_payload(running: bool) -> dict:
     }
 
 
-# ── Streamlit URL for REIT iframe ─────────────────────────────────────────────
+# ── Dashboard URLs ────────────────────────────────────────────────────────────
 REIT_FRONTEND_URL = os.environ.get("VITE_REIT_URL", "http://localhost:5173")
+IC_FRONTEND_URL   = os.environ.get("VITE_IC_URL",   "http://localhost:5173/individual")
 
 # ── Page config — must be first Streamlit call ──────────────────────────────
 st.set_page_config(
@@ -187,13 +188,14 @@ def main():
     render_sidebar()
 
     # ── Top-level tabs ────────────────────────────────────────────────────────
-    tab_reit, tab_twin, tab_individual = st.tabs([
-        "📊 REIT Dashboard",
+    tab_twin, tab_reit, tab_individual = st.tabs([
         "🔬 Digital Twin Engine",
+        "📊 REIT Dashboard",
         "👤 Individual Customer",
     ])
 
-    # ── Tab 1: REIT Dashboard (iframe embed) ─────────────────────────────────
+    # ── Tab 1: Digital Twin Engine — rendered first so it drives the rerun loop
+    # ── Tab 2: REIT Dashboard (iframe embed) ─────────────────────────────────
     with tab_reit:
         hdr_col, btn_col = st.columns([5, 1])
         with hdr_col:
@@ -232,7 +234,7 @@ def main():
             f"port 5173. Command: `cd \"{__file__.replace('app.py', 'frontend')}\" && npm run dev`"
         )
 
-    # ── Tab 2: Digital Twin Engine ────────────────────────────────────────────
+    # ── Tab 1: Digital Twin Engine ───────────────────────────────────────────
     with tab_twin:
 
         if st.session_state.running:
@@ -333,6 +335,20 @@ def main():
 
     # ── Tab 3: Individual Customer ────────────────────────────────────────────
     with tab_individual:
+        ic_hdr, ic_btn = st.columns([5, 1])
+        with ic_hdr:
+            st.markdown("### 👤 TwinVal Individual Customer")
+            if _API_URL:
+                st.caption("🌐 **Cloud mode** — simulated individual property dashboard")
+            else:
+                st.caption("🖥️ **Local mode** — simulated individual property dashboard")
+        with ic_btn:
+            st.link_button(
+                "Full Screen ↗",
+                IC_FRONTEND_URL,
+                use_container_width=True,
+                help="Open the Individual Customer dashboard in a new browser tab",
+            )
         render_individual_customer_tab()
 
 

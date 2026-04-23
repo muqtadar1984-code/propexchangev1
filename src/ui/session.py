@@ -13,7 +13,7 @@ def init_session_state():
     """Initialize session state on first load."""
     if "initialized" not in st.session_state:
         st.session_state.initialized = True
-        st.session_state.running = False
+        st.session_state.running = True   # engine starts automatically
         st.session_state.exchange = PropertyExchange()
         st.session_state.orchestrators = {}
         st.session_state.data_logs = {}

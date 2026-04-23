@@ -8,6 +8,7 @@ import streamlit as st
 from config.buildings import ASHRAE_BUILDINGS
 
 _REIT_URL = os.environ.get("VITE_REIT_URL", "http://localhost:5173").strip()
+_IC_URL   = os.environ.get("VITE_IC_URL",   "http://localhost:5173/individual").strip()
 
 
 def render_sidebar():
@@ -16,32 +17,26 @@ def render_sidebar():
         st.markdown("## ⚙️ System Controls")
         st.markdown("---")
 
-        # ── REIT Dashboard Link ───────────────────────────────────────────────
+        # ── Dashboard Links ───────────────────────────────────────────────────
         st.link_button(
             "📊 Open REIT Dashboard ↗",
             _REIT_URL,
             use_container_width=True,
             help=f"Opens the TwinVal REIT Intelligence dashboard at {_REIT_URL}",
         )
+        st.link_button(
+            "👤 Open Individual Dashboard ↗",
+            _IC_URL,
+            use_container_width=True,
+            help=f"Opens the TwinVal Individual Customer dashboard at {_IC_URL}",
+        )
         if "localhost" in _REIT_URL:
-            st.caption("🖥️ Run `npm run dev` in /frontend to activate")
+            st.caption("🖥️ Run `npm run dev` in /frontend to activate dashboards")
         else:
-            st.caption(f"🌐 Cloud dashboard: `{_REIT_URL}`")
+            st.caption("🌐 Cloud dashboards active")
         st.markdown("---")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("▶️ START", use_container_width=True):
-                st.session_state.running = True
-        with col2:
-            if st.button("⏹️ STOP", use_container_width=True):
-                st.session_state.running = False
-
-        if st.button("🔄 RESET SYSTEM", use_container_width=True):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
-
+        # Engine runs automatically — cycle speed is the only control
         st.session_state.cycle_speed = st.slider(
             "Cycle Speed (sec)", 0.3, 3.0, 0.8, 0.1
         )
