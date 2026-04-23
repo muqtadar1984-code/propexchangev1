@@ -37,6 +37,7 @@ from src.ui.charts import render_sensor_charts
 from src.ui.hash_chain_tab import render_hash_chain_tab
 from src.ui.valuation_table import render_valuation_table
 from src.ui.indicator_curves import render_indicator_curves
+from src.ui.individual_customer import render_individual_customer_tab
 
 # ── API bridge (Element H live connection to REIT dashboard) ─────────────────
 # LOCAL  → api_server starts as background thread on port 8502; state is pushed
@@ -186,7 +187,11 @@ def main():
     render_sidebar()
 
     # ── Top-level tabs ────────────────────────────────────────────────────────
-    tab_reit, tab_twin = st.tabs(["📊 REIT Dashboard", "🔬 Digital Twin Engine"])
+    tab_reit, tab_twin, tab_individual = st.tabs([
+        "📊 REIT Dashboard",
+        "🔬 Digital Twin Engine",
+        "👤 Individual Customer",
+    ])
 
     # ── Tab 1: REIT Dashboard (iframe embed) ─────────────────────────────────
     with tab_reit:
@@ -324,6 +329,11 @@ def main():
 
                 *All 5 buildings are in Greater Kuala Lumpur — same tropical weather profile, different usage patterns and property types.*
                 """)
+
+
+    # ── Tab 3: Individual Customer ────────────────────────────────────────────
+    with tab_individual:
+        render_individual_customer_tab()
 
 
 if __name__ == "__main__":
