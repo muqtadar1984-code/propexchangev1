@@ -181,8 +181,8 @@ def main():
     init_session_state()
 
     # Read URLs fresh on every render so secrets changes take effect immediately
-    reit_url = _get_frontend_url("VITE_REIT_URL", "https://twinval.com/reit")
-    ic_url   = _get_frontend_url("VITE_IC_URL",   "https://twinval.com/individual")
+    reit_url = _get_frontend_url("VITE_REIT_URL", "https://app.twinval.com")
+    ic_url   = _get_frontend_url("VITE_IC_URL",   "https://app.twinval.com/individual")
 
     st.markdown(
         '<div class="main-header">'

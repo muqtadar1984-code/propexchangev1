@@ -18,8 +18,8 @@ def _get_url(key: str, default: str) -> str:
 
 def render_sidebar():
     """Render sidebar controls."""
-    _reit_url = _get_url("VITE_REIT_URL", "https://twinval.com/reit")
-    _ic_url   = _get_url("VITE_IC_URL",   "https://twinval.com/individual")
+    _reit_url = _get_url("VITE_REIT_URL", "https://app.twinval.com")
+    _ic_url   = _get_url("VITE_IC_URL",   "https://app.twinval.com/individual")
 
     with st.sidebar:
         st.markdown("## ⚙️ System Controls")
