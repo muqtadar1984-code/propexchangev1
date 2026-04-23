@@ -130,8 +130,8 @@ def _build_state_payload(running: bool) -> dict:
 
 
 # ── Dashboard URLs ────────────────────────────────────────────────────────────
-REIT_FRONTEND_URL = os.environ.get("VITE_REIT_URL", "http://localhost:5173")
-IC_FRONTEND_URL   = os.environ.get("VITE_IC_URL",   "http://localhost:5173/individual")
+REIT_FRONTEND_URL = os.environ.get("VITE_REIT_URL", "https://twinval.com/reit")
+IC_FRONTEND_URL   = os.environ.get("VITE_IC_URL",   "https://twinval.com/individual")
 
 # ── Page config — must be first Streamlit call ──────────────────────────────
 st.set_page_config(

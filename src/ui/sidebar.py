@@ -7,8 +7,8 @@ import streamlit as st
 
 from config.buildings import ASHRAE_BUILDINGS
 
-_REIT_URL = os.environ.get("VITE_REIT_URL", "http://localhost:5173").strip()
-_IC_URL   = os.environ.get("VITE_IC_URL",   "http://localhost:5173/individual").strip()
+_REIT_URL = os.environ.get("VITE_REIT_URL", "https://twinval.com/reit").strip()
+_IC_URL   = os.environ.get("VITE_IC_URL",   "https://twinval.com/individual").strip()
 
 
 def render_sidebar():
