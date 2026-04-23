@@ -37,7 +37,8 @@ from src.ui.charts import render_sensor_charts
 from src.ui.hash_chain_tab import render_hash_chain_tab
 from src.ui.valuation_table import render_valuation_table
 from src.ui.indicator_curves import render_indicator_curves
-from src.ui.individual_customer import render_individual_customer_tab
+# render_individual_customer_tab imported only if Streamlit fallback is needed
+# from src.ui.individual_customer import render_individual_customer_tab
 
 # ── API bridge (Element H live connection to REIT dashboard) ─────────────────
 # LOCAL  → api_server starts as background thread on port 8502; state is pushed
@@ -333,15 +334,21 @@ def main():
                 """)
 
 
-    # ── Tab 3: Individual Customer ────────────────────────────────────────────
+    # ── Tab 3: Individual Customer (iframe embed — mirrors REIT tab) ─────────
     with tab_individual:
         ic_hdr, ic_btn = st.columns([5, 1])
         with ic_hdr:
             st.markdown("### 👤 TwinVal Individual Customer")
             if _API_URL:
-                st.caption("🌐 **Cloud mode** — simulated individual property dashboard")
+                st.caption(
+                    "🌐 **Cloud mode** — Individual Customer React dashboard "
+                    f"served from `{IC_FRONTEND_URL}`"
+                )
             else:
-                st.caption("🖥️ **Local mode** — simulated individual property dashboard")
+                st.caption(
+                    "🖥️ **Local mode** — start Vite dev server: "
+                    "`cd frontend && npm run dev`, then open `/individual`"
+                )
         with ic_btn:
             st.link_button(
                 "Full Screen ↗",
@@ -349,7 +356,13 @@ def main():
                 use_container_width=True,
                 help="Open the Individual Customer dashboard in a new browser tab",
             )
-        render_individual_customer_tab()
+
+        components.iframe(IC_FRONTEND_URL, height=900, scrolling=True)
+
+        st.info(
+            "💡 If the dashboard is blank, the Vercel build may still be deploying — "
+            f"check [propexchangev1.vercel.app/individual]({IC_FRONTEND_URL}) directly."
+        )
 
 
 if __name__ == "__main__":
