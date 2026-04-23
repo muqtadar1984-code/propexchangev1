@@ -7,12 +7,20 @@ import streamlit as st
 
 from config.buildings import ASHRAE_BUILDINGS
 
-_REIT_URL = os.environ.get("VITE_REIT_URL", "https://twinval.com/reit").strip()
-_IC_URL   = os.environ.get("VITE_IC_URL",   "https://twinval.com/individual").strip()
+
+def _get_url(key: str, default: str) -> str:
+    """Read URL from st.secrets first, then os.environ, then hardcoded default."""
+    try:
+        return st.secrets[key].strip()
+    except (KeyError, AttributeError):
+        return os.environ.get(key, default).strip()
 
 
 def render_sidebar():
     """Render sidebar controls."""
+    _reit_url = _get_url("VITE_REIT_URL", "https://twinval.com/reit")
+    _ic_url   = _get_url("VITE_IC_URL",   "https://twinval.com/individual")
+
     with st.sidebar:
         st.markdown("## ⚙️ System Controls")
         st.markdown("---")
@@ -20,17 +28,17 @@ def render_sidebar():
         # ── Dashboard Links ───────────────────────────────────────────────────
         st.link_button(
             "📊 Open REIT Dashboard ↗",
-            _REIT_URL,
+            _reit_url,
             use_container_width=True,
-            help=f"Opens the TwinVal REIT Intelligence dashboard at {_REIT_URL}",
+            help=f"Opens the TwinVal REIT Intelligence dashboard at {_reit_url}",
         )
         st.link_button(
             "👤 Open Individual Dashboard ↗",
-            _IC_URL,
+            _ic_url,
             use_container_width=True,
-            help=f"Opens the TwinVal Individual Customer dashboard at {_IC_URL}",
+            help=f"Opens the TwinVal Individual Customer dashboard at {_ic_url}",
         )
-        if "localhost" in _REIT_URL:
+        if "localhost" in _reit_url:
             st.caption("🖥️ Run `npm run dev` in /frontend to activate dashboards")
         else:
             st.caption("🌐 Cloud dashboards active")

@@ -129,9 +129,12 @@ def _build_state_payload(running: bool) -> dict:
     }
 
 
-# ── Dashboard URLs ────────────────────────────────────────────────────────────
-REIT_FRONTEND_URL = os.environ.get("VITE_REIT_URL", "https://twinval.com/reit")
-IC_FRONTEND_URL   = os.environ.get("VITE_IC_URL",   "https://twinval.com/individual")
+def _get_frontend_url(key: str, default: str) -> str:
+    """Read URL from st.secrets first, then os.environ, then hardcoded default."""
+    try:
+        return st.secrets[key].strip()
+    except (KeyError, AttributeError):
+        return os.environ.get(key, default).strip()
 
 # ── Page config — must be first Streamlit call ──────────────────────────────
 st.set_page_config(
@@ -176,6 +179,10 @@ st.markdown("""
 
 def main():
     init_session_state()
+
+    # Read URLs fresh on every render so secrets changes take effect immediately
+    reit_url = _get_frontend_url("VITE_REIT_URL", "https://twinval.com/reit")
+    ic_url   = _get_frontend_url("VITE_IC_URL",   "https://twinval.com/individual")
 
     st.markdown(
         '<div class="main-header">'
@@ -223,12 +230,12 @@ def main():
         with btn_col:
             st.link_button(
                 "Full Screen ↗",
-                REIT_FRONTEND_URL,
+                reit_url,
                 use_container_width=True,
                 help="Open the REIT dashboard in a new browser tab",
             )
 
-        components.iframe(REIT_FRONTEND_URL, height=900, scrolling=True)
+        components.iframe(reit_url, height=900, scrolling=True)
 
         st.info(
             "💡 If the dashboard is blank, make sure the Vite server is running on "
@@ -342,7 +349,7 @@ def main():
             if _API_URL:
                 st.caption(
                     "🌐 **Cloud mode** — Individual Customer React dashboard "
-                    f"served from `{IC_FRONTEND_URL}`"
+                    f"served from `{ic_url}`"
                 )
             else:
                 st.caption(
@@ -352,16 +359,16 @@ def main():
         with ic_btn:
             st.link_button(
                 "Full Screen ↗",
-                IC_FRONTEND_URL,
+                ic_url,
                 use_container_width=True,
                 help="Open the Individual Customer dashboard in a new browser tab",
             )
 
-        components.iframe(IC_FRONTEND_URL, height=900, scrolling=True)
+        components.iframe(ic_url, height=900, scrolling=True)
 
         st.info(
             "💡 If the dashboard is blank, the Vercel build may still be deploying — "
-            f"check [propexchangev1.vercel.app/individual]({IC_FRONTEND_URL}) directly."
+            f"check [propexchangev1.vercel.app/individual]({ic_url}) directly."
         )
 
 
