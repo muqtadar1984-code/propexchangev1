@@ -193,6 +193,70 @@ function Help({ text }) {
   );
 }
 
+// ── House / shop SVG icon ─────────────────────────────────────────────────────
+function HouseIcon({ size = 56, color = "#9bb0c4", type = "house" }) {
+  if (type === "shop") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 10l1.5-4h15L21 10" />
+        <path d="M4 10v11h16V10" />
+        <path d="M9 21v-6h6v6" />
+        <path d="M3 10h18" />
+        <path d="M7.5 13h2M14.5 13h2" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 10.5L12 3l9 7.5V21H3V10.5z" />
+      <path d="M9 21V13h6v8" />
+      <path d="M15 7.5V4h2.5v5" />
+    </svg>
+  );
+}
+
+// ── Force chart to remount once after first paint (Recharts measure fix) ─────
+function useChartRemount() {
+  const [k, setK] = useState(0);
+  useEffect(() => {
+    const t1 = setTimeout(() => {
+      setK(x => x + 1);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("resize"));
+    }, 60);
+    const t2 = setTimeout(() => {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("resize"));
+    }, 250);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  return k;
+}
+
+// ── Hover tooltip wrapper for arbitrary trigger element ──────────────────────
+function HoverTip({ text, children }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      {children}
+      {show && (
+        <span style={{
+          position: "absolute", top: "100%", right: 0,
+          transform: "translateY(8px)",
+          background: "#1a2a40", border: "1px solid rgba(201,168,76,0.4)",
+          borderRadius: 4, padding: "10px 14px", fontSize: 12,
+          color: "#e8e0d4", width: 280, zIndex: 30,
+          whiteSpace: "normal", textAlign: "left", fontWeight: 400,
+          letterSpacing: 0, textTransform: "none", lineHeight: 1.5,
+          pointerEvents: "none",
+          boxShadow: "0 6px 16px rgba(0,0,0,0.45)",
+        }}>{text}</span>
+      )}
+    </span>
+  );
+}
+
 // ── Labelled progress bar ────────────────────────────────────────────────────
 function ProgressBar({ value, label, help, color = "#C9A84C", showNumber = true }) {
   const pct = Math.max(0, Math.min(1, value));
@@ -259,6 +323,7 @@ function HealthBadge({ h, size = "md" }) {
 
 // ── Tab: Portfolio Overview ───────────────────────────────────────────────────
 function TabPortfolio({ selected, setSelected }) {
+  const chartKey = useChartRemount();
   const allRv = Object.values(PROPS).map(p => rv(p));
   const total = allRv.reduce((a, b) => a + b, 0);
   const allHf = Object.values(PROPS).map(p => hf(p));
@@ -336,8 +401,8 @@ function TabPortfolio({ selected, setSelected }) {
         <div style={{ fontSize: 12, color: "#8a8070", letterSpacing: 1, marginBottom: 8, textTransform: "uppercase" }}>
           Total Property Value — Last 30 Days
         </div>
-        <div style={{ ...S.card, padding: "16px 12px" }}>
-          <ResponsiveContainer width="100%" height={220}>
+        <div style={{ ...S.card, padding: "16px 12px", minHeight: 240 }}>
+          <ResponsiveContainer key={`port-${chartKey}`} width="100%" height={220}>
             <LineChart data={combined}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#666" }} interval={5} />
@@ -348,8 +413,8 @@ function TabPortfolio({ selected, setSelected }) {
               />
               <Tooltip formatter={(v, name) => [rm(v), name]} contentStyle={{ background: "#0d1f3c", border: "1px solid #C9A84C55", borderRadius: 4 }} />
               <Legend />
-              <Line type="monotone" dataKey="Villa"     stroke="#C9A84C" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Shophouse" stroke="#2196f3" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Villa"     stroke="#C9A84C" strokeWidth={2} dot={false} isAnimationActive={false} />
+              <Line type="monotone" dataKey="Shophouse" stroke="#2196f3" strokeWidth={2} dot={false} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -357,20 +422,25 @@ function TabPortfolio({ selected, setSelected }) {
 
       {/* Property cards */}
       <div style={{ marginTop: 24, ...S.grid2 }}>
-        {Object.values(PROPS).map((p, idx) => {
+        {Object.values(PROPS).map((p) => {
           const h = hf(p), r = rv(p);
           const statusRaw = tradingStatusRaw(h, p.CI);
           const statusLbl = tradingStatusLabel(statusRaw);
-          const series = seriesAll[idx];
-          const colours = ["#C9A84C", "#2196f3"];
+          const iconType  = p.type.toLowerCase().includes("shop") ? "shop" : "house";
           return (
             <div key={p.id}
               style={selected === p.id ? S.propCardSel : S.propCard}
               onClick={() => setSelected(p.id)}>
               <div style={{ fontSize: 11, color: "#8a8070", marginBottom: 4 }}>{p.type} · Built {p.builtYear}</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#E2C97E", marginBottom: 10 }}>{p.name}</div>
-              <Sparkline data={series} color={colours[idx]} />
-              <div style={{ marginTop: 10, fontSize: 20, fontWeight: 700, color: "#C9A84C" }}>{rm(r)}</div>
+              <div style={{ ...S.imagePh, minHeight: 110, gap: 10, flexDirection: "row" }}>
+                <HouseIcon size={56} type={iconType} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontSize: 12, color: "#9bb0c4" }}>Property image</div>
+                  <div style={{ fontSize: 11, color: "#6a7a8a", marginTop: 2 }}>{p.name}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 12, fontSize: 20, fontWeight: 700, color: "#C9A84C" }}>{rm(r)}</div>
               <div style={{ display: "flex", gap: 10, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <HealthBadge h={h} />
                 <span style={{ ...S.pill, background: STATUS_COLOUR[statusRaw] + "22", color: STATUS_COLOUR[statusRaw], border: `1px solid ${STATUS_COLOUR[statusRaw]}55` }}>
@@ -405,9 +475,10 @@ function TabProperty({ propId }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 20 }}>
         {/* Left: Image placeholder + metadata */}
         <div>
-          <div style={S.imagePh}>
+          <div style={{ ...S.imagePh, minHeight: 200, flexDirection: "column", gap: 12 }}>
+            <HouseIcon size={88} type={p.type.toLowerCase().includes("shop") ? "shop" : "house"} />
             <div>
-              <div style={{ fontSize: 16, color: "#b8c8d8", marginBottom: 6 }}>{p.name}</div>
+              <div style={{ fontSize: 16, color: "#b8c8d8", marginBottom: 4 }}>{p.name}</div>
               <div style={{ fontSize: 11, color: "#7a8a9a" }}>Property image</div>
             </div>
           </div>
@@ -538,6 +609,7 @@ function TabTimeline({ propId }) {
   const [range, setRange] = useState("90d");
   const [showLand,   setShowLand]   = useState(true);
   const [showStruct, setShowStruct] = useState(false);
+  const chartKey = useChartRemount();
 
   const allData = rtpmvSeries(p);
   const days    = range === "30d" ? 30 : 90;
@@ -548,6 +620,8 @@ function TabTimeline({ propId }) {
   const chg30   = ((last - prev) / prev * 100).toFixed(2);
   const maxV    = Math.max(...vals);
   const minV    = Math.min(...vals);
+  const yMin    = Math.min(...vals, p.baselineValue) * 0.97;
+  const yMax    = Math.max(...vals, p.baselineValue) * 1.03;
 
   return (
     <div>
@@ -579,26 +653,26 @@ function TabTimeline({ propId }) {
         </label>
       </div>
 
-      <div style={{ ...S.card, padding: "16px 12px" }}>
-        <ResponsiveContainer width="100%" height={300}>
+      <div style={{ ...S.card, padding: "16px 12px", minHeight: 320 }}>
+        <ResponsiveContainer key={`tl-${chartKey}-${range}-${showLand}-${showStruct}`} width="100%" height={300}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#666" }} interval={Math.floor(days/8)} />
             <YAxis
               tick={{ fontSize: 10, fill: "#666" }}
               tickFormatter={v => `RM ${(v/1e6).toFixed(2)}M`}
-              domain={['auto','auto']}
+              domain={[yMin, yMax]}
             />
             <Tooltip formatter={(v, n) => [rm(v), n]} contentStyle={{ background: "#0d1f3c", border: "1px solid #C9A84C55", borderRadius: 4 }} />
             <Legend />
             <Line
               type="monotone" dataKey="baseline"
               name="Baseline (government assessment)"
-              stroke="#2e7d32" strokeWidth={1.5} strokeDasharray="6 4" dot={false}
+              stroke="#2e7d32" strokeWidth={1.5} strokeDasharray="6 4" dot={false} isAnimationActive={false}
             />
-            <Line type="monotone" dataKey="rtpmv" name="Estimated Property Value" stroke="#C9A84C" strokeWidth={2} dot={false} />
-            {showLand   && <Line type="monotone" dataKey="land"      name="Land Value"     stroke="#4fc3f7" strokeWidth={1.5} strokeDasharray="5 3" dot={false} />}
-            {showStruct && <Line type="monotone" dataKey="structure" name="Building Value" stroke="#e65100" strokeWidth={1.5} strokeDasharray="5 3" dot={false} />}
+            <Line type="monotone" dataKey="rtpmv" name="Estimated Property Value" stroke="#C9A84C" strokeWidth={2} dot={false} isAnimationActive={false} />
+            {showLand   && <Line type="monotone" dataKey="land"      name="Land Value"     stroke="#4fc3f7" strokeWidth={1.5} strokeDasharray="5 3" dot={false} isAnimationActive={false} />}
+            {showStruct && <Line type="monotone" dataKey="structure" name="Building Value" stroke="#e65100" strokeWidth={1.5} strokeDasharray="5 3" dot={false} isAnimationActive={false} />}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -860,6 +934,13 @@ export default function TwinValIndividual() {
   const avgHf  = Object.values(PROPS).map(p => hf(p)).reduce((a,b)=>a+b,0) / Object.keys(PROPS).length;
   const avgBand = healthBand(avgHf);
 
+  // Navbar Health tooltip text — names properties that need attention
+  const needsAttn = Object.values(PROPS).filter(p => healthBand(hf(p)).key === "needs");
+  const attnSentence = needsAttn.length === 0
+    ? "All your properties are within healthy ranges."
+    : `${needsAttn.map(p => p.name).join(" and ")} ${needsAttn.length > 1 ? "need" : "needs"} a sensor inspection.`;
+  const navHealthTip = `Your properties' combined health score is ${avgHf.toFixed(2)} / 1.0. ${attnSentence}`;
+
   const showSelector = activeTab === 1 || activeTab === 2 || activeTab === 3;
 
   return (
@@ -873,11 +954,19 @@ export default function TwinValIndividual() {
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, color: "#8a8070", display: "flex", alignItems: "center", gap: 14 }}>
             <span>Total&nbsp;<strong style={{ color: "#C9A84C" }}>{rm(total)}</strong></span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              Health:
-              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: avgBand.color }} />
-              <strong style={{ color: avgBand.color }}>{avgBand.label}</strong>
-            </span>
+            <HoverTip text={navHealthTip}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, cursor: "help", padding: "2px 4px", borderBottom: "1px dotted rgba(201,168,76,0.35)" }}>
+                Health:
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: avgBand.color }} />
+                <strong style={{ color: avgBand.color }}>{avgBand.label}</strong>
+                <span style={{
+                  display: "inline-flex", justifyContent: "center", alignItems: "center",
+                  width: 14, height: 14, borderRadius: "50%",
+                  border: "1px solid #8a8070", color: "#8a8070",
+                  fontSize: 9, fontWeight: 600, marginLeft: 2,
+                }}>?</span>
+              </span>
+            </HoverTip>
           </div>
           <div style={{ fontSize: 10, color: "#4a6070", letterSpacing: 1 }}>
             {new Date().toLocaleTimeString("en-MY")}
