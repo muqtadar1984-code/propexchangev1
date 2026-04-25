@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main:       resolve(__dirname, "index.html"),
         individual: resolve(__dirname, "individual.html"),
+        personal:   resolve(__dirname, "personal.html"),
       },
     },
   },

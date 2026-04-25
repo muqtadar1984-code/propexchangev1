@@ -949,7 +949,7 @@ export default function TwinValIndividual() {
       <div style={S.topbar}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={S.logo}>TwinVal</div>
-          <span style={S.badge}>INDIVIDUAL CUSTOMER</span>
+          <span style={S.badge}>TWINVAL PERSONAL</span>
         </div>
         <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, color: "#8a8070", display: "flex", alignItems: "center", gap: 14 }}>
@@ -1043,7 +1043,7 @@ export default function TwinValIndividual() {
       {/* Footer */}
       <div style={{ padding: "20px 32px", borderTop: "1px solid rgba(201,168,76,0.12)", fontSize: 11, color: "#4a5a6a", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <span>Aethel Twin Sdn. Bhd. · Reg. No. 202601012908 / 1675006-X · Kuala Lumpur</span>
-        <span>TwinVal Individual Customer Dashboard · Demo Mode</span>
+        <span>TwinVal Personal · Demo Mode</span>
       </div>
     </div>
   );
