@@ -1,6 +1,8 @@
 {
   "rewrites": [
     { "source": "/individual", "destination": "/individual.html" },
-    { "source": "/personal",   "destination": "/personal.html" }
+    { "source": "/personal",   "destination": "/personal.html" },
+    { "source": "/entry",        "destination": "https://twinval-entry.vercel.app/entry" },
+    { "source": "/entry/:path*", "destination": "https://twinval-entry.vercel.app/entry/:path*" }
   ]
 }
