@@ -9,9 +9,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main:       resolve(__dirname, "index.html"),
-        individual: resolve(__dirname, "individual.html"),
-        personal:   resolve(__dirname, "personal.html"),
+        main:          resolve(__dirname, "index.html"),
+        individual:    resolve(__dirname, "individual.html"),
+        personal:      resolve(__dirname, "personal.html"),
+        propdeveloper: resolve(__dirname, "propdeveloper.html"),
       },
     },
   },
