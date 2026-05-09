@@ -26,3 +26,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Claude Code (local agent tooling: launch.json, worktrees, settings)
+.claude/
