@@ -219,6 +219,24 @@ const RTPMV_SENSITIVITY = [
   { score: 100, rtpmv: 355 },
 ];
 
+const VALUE_MOVEMENT_7D = [
+  { factor: "Structural sensor readings",      dir: "up",   pct: "+0.8%", desc: "Vibration and strain within normal range across all monitored floors" },
+  { factor: "MEP commissioning progress",      dir: "up",   pct: "+1.4%", desc: "Completion of L1–L14 MEP verified by sensor sign-off" },
+  { factor: "Humidity deviation (South Wing)", dir: "down", pct: "-0.6%", desc: "Ambient humidity readings 12% above curing threshold on 3 floors" },
+  { factor: "Usage stress increase",           dir: "down", pct: "-0.9%", desc: "Construction equipment load increased during structural fit-out phase" },
+  { factor: "Confidence Index improvement",    dir: "up",   pct: "+0.3%", desc: "Two additional sensor nodes brought online on L18 and L19" },
+];
+const VALUE_MOVEMENT_NET = { dir: "up", pct: "+0.97%", desc: "₹2.8 Cr increase this week" };
+
+const CI_BREAKDOWN = [
+  { component: "Sensor Coverage",              score: "92%",      status: "good",  detail: "48 of 52 sensor nodes active and reporting" },
+  { component: "Sensor Reliability",           score: "96%",      status: "good",  detail: "Uptime continuity verified across all active nodes" },
+  { component: "Data Freshness",               score: "High",     status: "good",  detail: "Last sensor reading received 43 seconds ago" },
+  { component: "Missing Zones",                score: "1 floor",  status: "watch", detail: "L22 sensor cluster offline since 09 May 2026" },
+  { component: "Manual Overrides Active",      score: "None",     status: "good",  detail: "No baseline value overrides currently applied" },
+  { component: "Market Liquidity Confidence",  score: "Moderate", status: "watch", detail: "Limited comparable transactions in last 30 days" },
+];
+
 const MILESTONES = [
   { n: 1,  name: "Foundation pour complete",        phase: "Foundation",    planned: "30 Apr 2024", actual: "28 Apr 2024", status: "done",     verified: "yes"     },
   { n: 2,  name: "Substructure waterproofing",      phase: "Foundation",    planned: "30 Jun 2024", actual: "2 Jul 2024",  status: "done",     verified: "yes"     },
@@ -588,6 +606,41 @@ export default function PropDeveloperDashboard() {
         .twinval-sensor-ring {
           animation: twinval-pulse-ring 1.6s ease-out infinite;
           fill: none;
+        }
+        .twinval-tip-host {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          cursor: help;
+        }
+        .twinval-tip-host .twinval-tip {
+          visibility: hidden;
+          opacity: 0;
+          transition: opacity 0.15s ease;
+          position: absolute;
+          top: 100%;
+          left: 0;
+          margin-top: 6px;
+          background: #1e1e1e;
+          color: #f5f0e8;
+          border: 1px solid #2a2a2a;
+          border-radius: 6px;
+          padding: 8px 12px;
+          font-size: 11px;
+          font-weight: 400;
+          letter-spacing: 0;
+          text-transform: none;
+          line-height: 1.5;
+          width: 280px;
+          max-width: 280px;
+          z-index: 100;
+          box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+          pointer-events: none;
+        }
+        .twinval-tip-host:hover .twinval-tip,
+        .twinval-tip-host:focus .twinval-tip {
+          visibility: visible;
+          opacity: 1;
         }
       `}</style>
 
@@ -987,6 +1040,54 @@ export default function PropDeveloperDashboard() {
             })}
           </div>
 
+          {/* Confidence Index — Component Breakdown */}
+          <Card style={{ marginTop: 14, borderLeft: `4px solid ${C.gold}` }}>
+            <SectionHeader>Confidence Index — Component Breakdown</SectionHeader>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ color: C.textDim, textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>CI Component</th>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Score</th>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Status</th>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CI_BREAKDOWN.map((row, i) => {
+                  const ok = row.status === "good";
+                  const col = ok ? C.success : C.warning;
+                  const ico = ok ? "✅ Good" : "⚠️ Watch";
+                  return (
+                    <tr key={row.component} style={{ background: i % 2 === 0 ? C.surface : "#0f0f0f" }}>
+                      <td style={{ padding: "10px", color: C.text, fontWeight: 500 }}>{row.component}</td>
+                      <td style={{ padding: "10px", color: C.text, fontFamily: "monospace", fontWeight: 600 }}>{row.score}</td>
+                      <td style={{ padding: "10px", color: col, fontWeight: 600 }}>{ico}</td>
+                      <td style={{ padding: "10px", color: C.textDim }}>{row.detail}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: C.textDim, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 600 }}>
+                  Composite CI Score
+                </span>
+                <span style={{ fontSize: 12, color: C.gold, fontWeight: 700, fontFamily: "monospace" }}>
+                  0.84 — High Confidence
+                </span>
+              </div>
+              <div style={{ background: C.border, borderRadius: 4, height: 10, overflow: "hidden" }}>
+                <div style={{ width: "84%", height: "100%", background: C.gold, borderRadius: 4, transition: "width 0.6s ease" }} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12, fontSize: 10, color: C.textDim, lineHeight: 1.5, fontStyle: "italic" }}>
+              A CI below 0.70 triggers a valuation confidence warning and widens exchange spread parameters. Below 0.50, RTPMV is flagged as provisional.
+            </div>
+          </Card>
+
           {/* Composite formula + gauge */}
           <div style={{ ...S.grid2, marginTop: 14 }}>
             <Card>
@@ -1054,71 +1155,125 @@ export default function PropDeveloperDashboard() {
             </Card>
           </div>
 
-          <div style={{ ...S.grid2, marginTop: 14 }}>
-            <Card>
-              <SectionHeader>RTPMV Breakdown</SectionHeader>
-              <div style={{ fontFamily: "monospace", fontSize: 12, color: C.textDim, lineHeight: 2 }}>
-                <div>RTPMV = Land Value + (Structure Value × Health Factor)</div>
-                <div style={{ color: C.text }}>= {fmt.cr(activeProject.landValue)} + ({fmt.cr(activeProject.structureValue)} × {(activeProject.buildHealth / 100).toFixed(3)})</div>
-                <div style={{ color: C.text }}>= {fmt.cr(activeProject.landValue)} + {fmt.cr(+(activeProject.structureValue * activeProject.buildHealth / 100).toFixed(1))}</div>
-                <div style={{ color: C.gold, fontWeight: 700 }}>= {fmt.cr(+(activeProject.landValue + activeProject.structureValue * activeProject.buildHealth / 100).toFixed(1))} (current)</div>
-              </div>
-              <div style={{
-                marginTop: 14, padding: "10px 12px",
-                background: `${C.success}10`, border: `1px solid ${C.success}40`, borderRadius: 6,
-                fontSize: 11, color: C.text,
-              }}>
-                At completion, assuming Build Health Score reaches <strong style={{ color: C.success }}>88</strong>, projected RTPMV = <strong style={{ color: C.success }}>{fmt.cr(activeProject.rtpmvCompletion)}</strong>
-              </div>
-            </Card>
+          <Card style={{ marginTop: 14 }}>
+            <SectionHeader>RTPMV Breakdown</SectionHeader>
+            <div style={{ fontFamily: "monospace", fontSize: 12, color: C.textDim, lineHeight: 2 }}>
+              <div>RTPMV = Land Value + (Structure Value × Health Factor)</div>
+              <div style={{ color: C.text }}>= {fmt.cr(activeProject.landValue)} + ({fmt.cr(activeProject.structureValue)} × {(activeProject.buildHealth / 100).toFixed(3)})</div>
+              <div style={{ color: C.text }}>= {fmt.cr(activeProject.landValue)} + {fmt.cr(+(activeProject.structureValue * activeProject.buildHealth / 100).toFixed(1))}</div>
+              <div style={{ color: C.gold, fontWeight: 700 }}>= {fmt.cr(+(activeProject.landValue + activeProject.structureValue * activeProject.buildHealth / 100).toFixed(1))} (current)</div>
+            </div>
+            <div style={{
+              marginTop: 14, padding: "10px 12px",
+              background: `${C.success}10`, border: `1px solid ${C.success}40`, borderRadius: 6,
+              fontSize: 11, color: C.text,
+            }}>
+              At completion, assuming Build Health Score reaches <strong style={{ color: C.success }}>88</strong>, projected RTPMV = <strong style={{ color: C.success }}>{fmt.cr(activeProject.rtpmvCompletion)}</strong>
+            </div>
+          </Card>
 
-            <Card>
-              <SectionHeader>Developer Value Adjustment</SectionHeader>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 4 }}>
-                  Override Baseline Value (₹ Cr)
-                </label>
-                <input type="number" value={overrideInput}
-                  onChange={(e) => setOverrideInput(e.target.value)}
-                  style={{
-                    width: "100%", padding: "8px 10px", fontSize: 12,
-                    background: C.surfaceAlt, border: `1px solid ${C.border}`,
-                    borderRadius: 4, color: C.text, fontFamily: "monospace",
-                  }} />
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 4 }}>
-                  Adjustment Reason
-                </label>
-                <input type="text" value={overrideReason}
-                  onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder="e.g. recent comparable sale, upgraded specifications"
-                  style={{
-                    width: "100%", padding: "8px 10px", fontSize: 12,
-                    background: C.surfaceAlt, border: `1px solid ${C.border}`,
-                    borderRadius: 4, color: C.text,
-                  }} />
-              </div>
-              <button onClick={applyOverride} style={{
-                background: C.gold, color: C.bg, border: "none", borderRadius: 4,
-                padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer",
-                letterSpacing: 0.5,
-              }}>Apply Override</button>
-              <div style={{ marginTop: 14, fontSize: 11, color: C.textDim }}>
-                {lastOverride ? (
-                  <>
-                    Last override: <strong style={{ color: C.gold }}>₹{lastOverride.value} Cr</strong> at {lastOverride.ts}
-                    <div style={{ marginTop: 2, fontSize: 10, fontStyle: "italic", color: C.textMuted }}>Reason: {lastOverride.reason}</div>
-                    <div style={{ marginTop: 6, fontSize: 11, color: C.text }}>
-                      Recomputed RTPMV: <strong style={{ color: C.gold }}>{fmt.cr(rtpmvAfterOverride)}</strong>
-                    </div>
-                  </>
-                ) : (
-                  <span>No override applied — using Govt. Assessment Value ({fmt.cr(activeProject.govtValue)})</span>
-                )}
-              </div>
-            </Card>
-          </div>
+          {/* Value Movement Analysis — "Why did my value change?" */}
+          <Card style={{ marginTop: 14, borderLeft: `4px solid ${C.gold}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, letterSpacing: 1.5, textTransform: "uppercase" }}>
+                Value Movement Analysis — Last 7 Days
+              </span>
+              <span className="twinval-tip-host" tabIndex={0} style={{
+                fontSize: 12, color: C.textDim, fontWeight: 700,
+                width: 16, height: 16, borderRadius: "50%",
+                border: `1px solid ${C.textDim}`,
+                justifyContent: "center", lineHeight: 1,
+              }}>
+                <span style={{ marginTop: -1 }}>i</span>
+                <span className="twinval-tip">
+                  This panel explains which physical and operational factors drove the change in RTPMV since the last valuation cycle.
+                </span>
+              </span>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ color: C.textDim, textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Factor</th>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600, textAlign: "center" }}>Direction</th>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600, textAlign: "right" }}>Contribution</th>
+                  <th style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {VALUE_MOVEMENT_7D.map((row, i) => {
+                  const up = row.dir === "up";
+                  const arrowCol = up ? C.success : C.danger;
+                  return (
+                    <tr key={row.factor} style={{ background: i % 2 === 0 ? C.surface : "#0f0f0f" }}>
+                      <td style={{ padding: "10px", color: C.text, fontWeight: 500 }}>{row.factor}</td>
+                      <td style={{ padding: "10px", color: arrowCol, fontSize: 14, fontWeight: 700, textAlign: "center" }}>
+                        {up ? "▲" : "▼"}
+                      </td>
+                      <td style={{ padding: "10px", color: arrowCol, fontFamily: "monospace", fontWeight: 600, textAlign: "right" }}>{row.pct}</td>
+                      <td style={{ padding: "10px", color: C.textDim, lineHeight: 1.4 }}>{row.desc}</td>
+                    </tr>
+                  );
+                })}
+                <tr style={{ borderTop: `2px solid ${C.gold}` }}>
+                  <td style={{ padding: "12px 10px", color: C.gold, fontWeight: 700 }}>Net RTPMV Movement</td>
+                  <td style={{ padding: "12px 10px", color: C.success, fontSize: 14, fontWeight: 700, textAlign: "center" }}>
+                    {VALUE_MOVEMENT_NET.dir === "up" ? "▲" : "▼"}
+                  </td>
+                  <td style={{ padding: "12px 10px", color: C.gold, fontFamily: "monospace", fontWeight: 700, textAlign: "right" }}>
+                    {VALUE_MOVEMENT_NET.pct}
+                  </td>
+                  <td style={{ padding: "12px 10px", color: C.gold, fontWeight: 600 }}>{VALUE_MOVEMENT_NET.desc}</td>
+                </tr>
+              </tbody>
+            </table>
+          </Card>
+
+          <Card style={{ marginTop: 14 }}>
+            <SectionHeader>Developer Value Adjustment</SectionHeader>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 4 }}>
+                Override Baseline Value (₹ Cr)
+              </label>
+              <input type="number" value={overrideInput}
+                onChange={(e) => setOverrideInput(e.target.value)}
+                style={{
+                  width: "100%", padding: "8px 10px", fontSize: 12,
+                  background: C.surfaceAlt, border: `1px solid ${C.border}`,
+                  borderRadius: 4, color: C.text, fontFamily: "monospace",
+                }} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 4 }}>
+                Adjustment Reason
+              </label>
+              <input type="text" value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="e.g. recent comparable sale, upgraded specifications"
+                style={{
+                  width: "100%", padding: "8px 10px", fontSize: 12,
+                  background: C.surfaceAlt, border: `1px solid ${C.border}`,
+                  borderRadius: 4, color: C.text,
+                }} />
+            </div>
+            <button onClick={applyOverride} style={{
+              background: C.gold, color: C.bg, border: "none", borderRadius: 4,
+              padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+              letterSpacing: 0.5,
+            }}>Apply Override</button>
+            <div style={{ marginTop: 14, fontSize: 11, color: C.textDim }}>
+              {lastOverride ? (
+                <>
+                  Last override: <strong style={{ color: C.gold }}>₹{lastOverride.value} Cr</strong> at {lastOverride.ts}
+                  <div style={{ marginTop: 2, fontSize: 10, fontStyle: "italic", color: C.textMuted }}>Reason: {lastOverride.reason}</div>
+                  <div style={{ marginTop: 6, fontSize: 11, color: C.text }}>
+                    Recomputed RTPMV: <strong style={{ color: C.gold }}>{fmt.cr(rtpmvAfterOverride)}</strong>
+                  </div>
+                </>
+              ) : (
+                <span>No override applied — using Govt. Assessment Value ({fmt.cr(activeProject.govtValue)})</span>
+              )}
+            </div>
+          </Card>
 
           <Card style={{ marginTop: 14 }}>
             <SectionHeader>RTPMV Sensitivity to Build Health Score (₹ Cr)</SectionHeader>
