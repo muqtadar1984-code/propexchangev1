@@ -13,6 +13,7 @@ export default defineConfig({
         individual:    resolve(__dirname, "individual.html"),
         personal:      resolve(__dirname, "personal.html"),
         propdeveloper: resolve(__dirname, "propdeveloper.html"),
+        valuer:        resolve(__dirname, "valuer.html"),
       },
     },
   },
