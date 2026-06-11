@@ -324,15 +324,35 @@ const StatusDot = ({ status }) => {
   return <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: col, marginRight: 6 }} />;
 };
 
-// ── Gate page (demo access gate; production: TwinVal auth + role:valuer) ────
+// ── Gate page (credentialled demo gate; production: TwinVal auth + role:valuer) ──
+// Credential check is a client-side SHA-256 of "accessId:password" — adequate
+// for a demonstration deployment, replaced by backend auth in production.
+const GATE_HASH = "519477887c0ebd1958901e804c9cf1b6ddbdc852cd750d4f40ae32c18d92a4a6";
+async function sha256Hex(s) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 function Gate({ onEnter }) {
+  const [accessId, setAccessId] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [reg, setReg] = useState("");
   const [err, setErr] = useState("");
-  const submit = () => {
-    if (!name.trim()) { setErr("Enter your name as registered with LPPEH."); return; }
-    if (!/^V-\d{3,5}$/i.test(reg.trim())) { setErr("LPPEH registration number must be in the format V-XXXX."); return; }
-    onEnter({ name: name.trim(), reg: reg.trim().toUpperCase() });
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    setErr("");
+    if (!accessId.trim() || !password) { setErr("Enter your access ID and password."); return; }
+    if (reg.trim() && !/^V-\d{3,5}$/i.test(reg.trim())) { setErr("LPPEH registration number must be in the format V-XXXX."); return; }
+    setBusy(true);
+    const ok = (await sha256Hex(`${accessId.trim().toLowerCase()}:${password}`)) === GATE_HASH;
+    setBusy(false);
+    if (!ok) { setErr("Invalid access ID or password."); return; }
+    onEnter({
+      name: name.trim() || "TwinVal Administrator",
+      reg: reg.trim() ? reg.trim().toUpperCase() : "V-0001",
+      role: "admin",
+      accessId: accessId.trim().toLowerCase(),
+    });
   };
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, padding: 20 }}>
@@ -340,16 +360,19 @@ function Gate({ onEnter }) {
         <div style={{ fontFamily: SERIF, fontSize: 30, color: C.gold, marginBottom: 4 }}>TwinVal</div>
         <div style={{ fontSize: 11, letterSpacing: "0.22em", color: C.textDim, marginBottom: 22 }}>VALUERS — INDEPENDENT APPRAISAL WORKBENCH</div>
         <p style={{ color: C.textDim, fontSize: 13, lineHeight: 1.6 }}>
-          Access is restricted to LPPEH Registered Valuers. The engine provides
-          sensor-verified condition data; the professional opinion of value remains
-          yours at all times, in accordance with the Malaysian Valuation Standards
-          (7th Edition, 2025).
+          Access is restricted to authorised users and LPPEH Registered Valuers. The
+          engine provides sensor-verified condition data; the professional opinion of
+          value remains the Valuer's at all times, in accordance with the Malaysian
+          Valuation Standards (7th Edition, 2025).
         </p>
-        <Field label="Valuer name"><input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="As registered with LPPEH" /></Field>
-        <Field label="LPPEH registration number"><input style={inputStyle} value={reg} onChange={(e) => setReg(e.target.value)} placeholder="V-1234" /></Field>
+        <Field label="Access ID"><input style={inputStyle} value={accessId} onChange={(e) => setAccessId(e.target.value)} autoComplete="username" /></Field>
+        <Field label="Password"><input type="password" style={inputStyle} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" onKeyDown={(e) => e.key === "Enter" && submit()} /></Field>
+        <div style={{ borderTop: `1px solid ${C.border}`, margin: "4px 0 14px" }} />
+        <Field label="Valuer name (optional — for the report signature block)"><input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="As registered with LPPEH" /></Field>
+        <Field label="LPPEH registration number (optional)"><input style={inputStyle} value={reg} onChange={(e) => setReg(e.target.value)} placeholder="V-1234" /></Field>
         {err && <div style={{ color: C.danger, fontSize: 12, marginBottom: 12 }}>{err}</div>}
-        <button onClick={submit} style={{ width: "100%", background: C.gold, color: C.bg, border: "none", borderRadius: 5, padding: "11px 0", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", cursor: "pointer" }}>
-          ENTER WORKBENCH
+        <button onClick={submit} disabled={busy} style={{ width: "100%", background: C.gold, color: C.bg, border: "none", borderRadius: 5, padding: "11px 0", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+          {busy ? "VERIFYING…" : "ENTER WORKBENCH"}
         </button>
         <div style={{ marginTop: 18, fontSize: 11.5, color: C.textMuted, textAlign: "center" }}>
           Not yet registered with TwinVal?{" "}
@@ -366,7 +389,11 @@ function Gate({ onEnter }) {
 // ── Main dashboard ───────────────────────────────────────────────────────────
 export default function ValuersDashboard() {
   const [auth, setAuth] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("tv_valuer_auth")) || null; } catch { return null; }
+    // Sessions created before the credential gate carry no role — force re-login.
+    try {
+      const a = JSON.parse(localStorage.getItem("tv_valuer_auth"));
+      return a && a.role ? a : null;
+    } catch { return null; }
   });
   const [propId, setPropId] = useState(ENGINE.properties[0].id);
   const P = ENGINE.properties.find((p) => p.id === propId);
